@@ -22,7 +22,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "devserver bind address")
 	liveReload := flag.Bool("live-reload", true, "enable/disable automatic reload via server sent events")
 	buildCmd := flag.String("build-cmd", "make", "command to run to build the server")
-	serverCmd := flag.String("server-cmd", "bin/server",
+	serverCmd := flag.String("server-cmd", "bin/server -addr {}",
 		"command for running the server; use the {} placeholder for the host:port argument")
 	webRoot := flag.String("web-root", "", "web root directory, reported file paths are relative to this directory")
 	flag.Parse()
