@@ -1,23 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"strings"
 
-type ansi string
-
-const (
-	escape ansi = "\x1b"
-	reset       = escape + "[0m"
-	bold        = escape + "[1m"
+	"github.com/fatih/color"
 )
 
-func ansiColor(str string, mod ansi) string {
-	return fmt.Sprintf("%s%s%s", mod, str, reset)
-}
-
-func termf(mod ansi, format string, args ...any) string {
-	return fmt.Sprintf(string(mod)+format+string(reset), args...)
-}
+var bold = color.New(color.FgHiWhite, color.Bold)
 
 func infof(format string, args ...any) {
-	fmt.Println(termf(bold, "===> "+format, args...))
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
+	bold.Printf("===> "+format, args...)
 }
