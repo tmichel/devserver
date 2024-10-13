@@ -43,7 +43,7 @@ func watchFiles(exts []string, f func(fsEventBatch)) {
 		var batch fsEventBatch
 		for line := range Lines(strings.TrimSpace(s.Text())) {
 			event := parseEvent(line)
-			if slices.Contains(exts, path.Ext(event.File)) {
+			if slices.Contains(exts, event.Ext) {
 				batch = append(batch, event)
 			}
 		}
@@ -58,6 +58,7 @@ type fsEventBatch []fsEvent
 
 type fsEvent struct {
 	File   string
+	Ext    string
 	Events []string
 	t      time.Time
 }
@@ -70,6 +71,7 @@ func parseEvent(s string) fsEvent {
 	parts := strings.Split(s, " ")
 	return fsEvent{
 		File:   parts[0],
+		Ext:    path.Ext(parts[0]),
 		Events: parts[1:],
 		t:      time.Now(),
 	}

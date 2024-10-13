@@ -42,8 +42,8 @@ const reloadJs = `
 		const data = JSON.parse(e.data)
 		console.info("change event", data);
 
-		for (const {File: file, Events: events} of data.events) {
-			const isCss = file.toLowerCase().endsWith(".css");
+		for (const {File: file, Ext: ext, Events: events} of data.events) {
+			const isCss = ext === ".css";
 			const isUpdated = events.includes("Updated");
 
 			if (isCss && isUpdated) {
