@@ -78,7 +78,18 @@ func rerun(addr string, restart <-chan struct{}, buildCmd string, serverCmd stri
 	// build -> stop -> run
 	run := func(stop func()) func() {
 		ctx, cancel := context.WithCancel(context.Background())
-		build(ctx, buildCmd)
+
+		if !build(ctx, buildCmd) {
+			fmt.Println("build failed")
+			if stop == nil {
+				// Exit immediately if this is the first build
+				os.Exit(1)
+			}
+
+			// Return the stop function so the next call to rerun can stop the
+			// server.
+			return stop
+		}
 
 		if stop != nil {
 			stop()
@@ -112,7 +123,7 @@ func rerun(addr string, restart <-chan struct{}, buildCmd string, serverCmd stri
 }
 
 // Build the server binary using buildCmd.
-func build(ctx context.Context, buildCmd string) {
+func build(ctx context.Context, buildCmd string) bool {
 	args, err := shlex.Split(buildCmd)
 	if err != nil {
 		log.Fatalf("build command parser error: %v", err)
@@ -130,6 +141,8 @@ func build(ctx context.Context, buildCmd string) {
 	fmt.Printf("%s", out)
 
 	infof("Build done; took %s", time.Since(start))
+
+	return cmd.ProcessState.Success()
 }
 
 // Start the server using serverCmd. In serverCmd {} placeholder is replaced
