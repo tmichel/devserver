@@ -124,6 +124,10 @@ func rerun(addr string, restart <-chan struct{}, buildCmd string, serverCmd stri
 
 // Build the server binary using buildCmd.
 func build(ctx context.Context, buildCmd string) bool {
+	if buildCmd == "" {
+		return true
+	}
+
 	args, err := shlex.Split(buildCmd)
 	if err != nil {
 		log.Fatalf("build command parser error: %v", err)
