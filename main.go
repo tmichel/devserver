@@ -113,10 +113,15 @@ func rerun(addr string, restart <-chan struct{}, buildCmd string, serverCmd stri
 
 // Build the server binary using buildCmd.
 func build(ctx context.Context, buildCmd string) {
+	args, err := shlex.Split(buildCmd)
+	if err != nil {
+		log.Fatalf("build command parser error: %v", err)
+	}
+
 	start := time.Now()
 	infof("Building...")
 	fmt.Println(time.Now().Format(time.UnixDate))
-	cmd := exec.CommandContext(ctx, buildCmd)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
