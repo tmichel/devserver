@@ -7,6 +7,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
+	"math/rand/v2"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -33,9 +36,9 @@ func main() {
 	}
 
 	restart := make(chan struct{})
-	broadcaster := NewBroadcaster[fsEventBatch]()
+	reload := NewBroadcaster[fsEventBatch]()
 
-	go rerun(target.Host, restart, *buildCmd, *serverCmd)
+	go rerun(target.Host, restart, *buildCmd, *serverCmd, reload)
 	go waitForEnter(restart)
 
 	if *liveReload {
@@ -44,11 +47,11 @@ func main() {
 			for _, e := range b {
 				b2 = append(b2, webRootRel(*webRoot, e))
 			}
-			broadcaster.Broadcast(b2)
+			reload.Broadcast(b2)
 		})
 	}
 
-	runProxy(*addr, target, broadcaster)
+	runProxy(*addr, target, reload)
 }
 
 func webRootRel(webRoot string, e fsEvent) fsEvent {
@@ -74,7 +77,14 @@ func waitForEnter(ch chan<- struct{}) {
 
 // rerun builds and runs the server over and over again. A message on the
 // restart channel initiates rebuild & restart.
-func rerun(addr string, restart <-chan struct{}, buildCmd string, serverCmd string) {
+func rerun(
+	addr string,
+	restart <-chan struct{},
+	buildCmd string,
+	serverCmd string,
+	reload *Broadcaster[fsEventBatch],
+) {
+
 	// build -> stop -> run
 	run := func(stop func()) func() {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -116,6 +126,10 @@ func rerun(addr string, restart <-chan struct{}, buildCmd string, serverCmd stri
 	for range restart {
 		infof("Restarting...")
 		stop = run(stop)
+
+		if err := connectWithRetry(context.Background(), addr); err == nil {
+			reload.Broadcast(fsEventBatch{})
+		}
 	}
 
 	// Stop the server before exiting
@@ -184,4 +198,40 @@ func startServer(ctx context.Context, addr string, serverCmd string) <-chan stru
 
 	infof("Started server: %v", cmd)
 	return done
+}
+
+func connectWithRetry(ctx context.Context, addr string) error {
+	const (
+		initialDelay = 500 * time.Millisecond
+		maxRetries   = 10
+	)
+
+	f := func() error {
+		c, err := net.Dial("tcp", addr)
+		if err == nil {
+			c.Close()
+		}
+		return err
+	}
+
+	var err error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err = f()
+		if err == nil {
+			return nil
+		}
+
+		delay := float64(initialDelay) * math.Pow(2, float64(attempt))
+
+		jitter := rand.Float64() * 0.1 * delay
+		finalDelay := time.Duration(delay + jitter)
+
+		select {
+		case <-time.After(finalDelay):
+		case <-ctx.Done():
+			return fmt.Errorf("operation cancelled: %w", ctx.Err())
+		}
+	}
+
+	return fmt.Errorf("operation failed after %d attempts: %w", maxRetries, err)
 }
