@@ -180,10 +180,10 @@ func startServer(ctx context.Context, addr string, serverCmd string) <-chan stru
 	}
 
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	// TODO: allow following logs
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	cmd.Cancel = func() error {
+		infof("Sending SIGTERM to pid %d", cmd.Process.Pid)
 		return cmd.Process.Signal(syscall.SIGTERM)
 	}
 
