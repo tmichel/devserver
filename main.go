@@ -86,7 +86,7 @@ func rerun(
 ) {
 
 	// build -> stop -> run
-	run := func(stop func()) func() {
+	run := func(stop func()) (func(), bool) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		if !build(ctx, buildCmd) {
@@ -98,7 +98,7 @@ func rerun(
 
 			// Return the stop function so the next call to rerun can stop the
 			// server.
-			return stop
+			return stop, false
 		}
 
 		if stop != nil {
@@ -119,15 +119,15 @@ func rerun(
 			case <-time.After(10 * time.Second):
 				log.Print("server stop timeout after 10 seconds")
 			}
-		}
+		}, true
 	}
 
-	stop := run(nil)
+	stop, restarted := run(nil)
 	for range restart {
 		infof("Restarting...")
-		stop = run(stop)
+		stop, restarted = run(stop)
 
-		if err := connectWithRetry(context.Background(), addr); err == nil {
+		if err := connectWithRetry(context.Background(), addr); restarted && err == nil {
 			reload.Broadcast(fsEventBatch{})
 		}
 	}
