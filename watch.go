@@ -63,10 +63,6 @@ type fsEvent struct {
 	t      time.Time
 }
 
-func (e fsEvent) is(name string) bool {
-	return slices.Contains(e.Events, name)
-}
-
 func parseEvent(s string) fsEvent {
 	parts := strings.Split(s, " ")
 	return fsEvent{
