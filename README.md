@@ -32,15 +32,16 @@ For details run
     cd /path/to/your/project
     devserver \
         -build-cmd "go build -o bin/my-app"  \
-        -server-cmd "bin/my-app -addr {}" \
-        -web-root $PWD/files
+        -web-root $PWD/files \
+        "bin/my-app -addr {}"
     # visit http://localhost:8080
+
+`serverCmd` defines the command for starting the server. Use `{}` as a
+placeholder for the host and port. It is passed in the format of `host:port`.
+`{port}` and `{host}` can also be used as placeholders.
 
 `-build-cmd` defines the build command. Defaults to `make`. Set it to an empty
 string to skip the build.
-
-`-server-cmd` defines the command for starting the server. Use `{}` as a
-placeholder for the host and port. It is passed in the format of `host:port`. 
 
 `-web-root` sets the root directory for files served by your web server. It is
 used to compute absolute URLs for files. For example when `-web-root
@@ -56,8 +57,8 @@ these situations you can specify `-build-cmd=""` to skip the build.
     cd /path/to/your/project
     devserver \
         -build-cmd "" \
-        -server-cmd "go run . -addr {}"  \
-        -web-root $PWD/files
+        -web-root $PWD/files \
+        "go run . -addr {}"
     # visit http://localhost:8080
 
 [1]: https://github.com/emcrisostomo/fswatch

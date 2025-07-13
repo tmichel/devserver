@@ -21,22 +21,28 @@ import (
 )
 
 func main() {
-	usage := flag.Usage
 	flag.Usage = func() {
-		usage()
-		fmt.Fprintln(flag.CommandLine.Output(), `
-Supported placeholder in -server-cmd:
-	{} is replaced by host:port
-	{host} is replaced by the host
-	{port} is replaced by the port`)
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] <serverCmd>\n", os.Args[0])
+		fmt.Fprintln(flag.CommandLine.Output(), "Supported placeholder in serverCmd:")
+		fmt.Fprintln(flag.CommandLine.Output(), "  {} is replaced by host:port")
+		fmt.Fprintln(flag.CommandLine.Output(), "  {host} is replaced by host")
+		fmt.Fprint(flag.CommandLine.Output(), "  {port} is replaced by port\n\n")
+		flag.PrintDefaults()
 	}
 	port := flag.String("port", "18080", "upstream port")
 	addr := flag.String("addr", "127.0.0.1:8080", "devserver bind address")
 	liveReload := flag.Bool("live-reload", true, "enable/disable automatic reload via server sent events")
 	buildCmd := flag.String("build-cmd", "make", "command to run to build the server")
-	serverCmd := flag.String("server-cmd", "bin/server -addr {}", "command for running the server")
 	webRoot := flag.String("web-root", "", "web root directory, reported file paths are relative to this directory")
 	flag.Parse()
+
+	serverCmd := flag.Arg(0)
+
+	if serverCmd == "" {
+		fmt.Fprintln(flag.CommandLine.Output(), "Missing serverCmd")
+		flag.Usage()
+		os.Exit(2)
+	}
 
 	target, err := url.Parse("http://127.0.0.1:" + *port)
 	if err != nil {
@@ -46,7 +52,7 @@ Supported placeholder in -server-cmd:
 	restart := make(chan struct{})
 	reload := NewBroadcaster[fsEventBatch]()
 
-	go rerun(target.Host, restart, *buildCmd, *serverCmd, reload)
+	go rerun(target.Host, restart, *buildCmd, serverCmd, reload)
 	go waitForEnter(restart)
 
 	if *liveReload {
