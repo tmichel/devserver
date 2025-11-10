@@ -62,7 +62,7 @@ const reloadJs = `
 			}
 		}
 
-		console.info("relading due to file change")
+		console.info("reloading due to file change")
 		window.location.reload();
 	});
 </script>`
