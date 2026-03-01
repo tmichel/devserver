@@ -40,7 +40,7 @@ const reloadJs = `
 	const es = new EventSource("/_dev");
 	es.addEventListener("change", (e) => {
 		const data = JSON.parse(e.data)
-		console.info("change event", data);
+		console.info("change event", e.data);
 
 		for (const {File: file, Ext: ext, Events: events} of data.events) {
 			const isCss = ext === ".css";
