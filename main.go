@@ -20,18 +20,24 @@ import (
 	"github.com/google/shlex"
 )
 
+const usage = `Usage: %s [options] <serverCmd>
+
+Supported placeholder in serverCmd:
+  {} is replaced by host:port
+  {host} is replaced by host
+  {port} is replaced by port
+
+`
+
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] <serverCmd>\n", os.Args[0])
-		fmt.Fprintln(flag.CommandLine.Output(), "Supported placeholder in serverCmd:")
-		fmt.Fprintln(flag.CommandLine.Output(), "  {} is replaced by host:port")
-		fmt.Fprintln(flag.CommandLine.Output(), "  {host} is replaced by host")
-		fmt.Fprint(flag.CommandLine.Output(), "  {port} is replaced by port\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), usage, os.Args[0])
 		flag.PrintDefaults()
 	}
 	port := flag.String("port", "18080", "upstream port")
 	addr := flag.String("addr", "127.0.0.1:8080", "devserver bind address")
 	liveReload := flag.Bool("live-reload", true, "enable/disable automatic reload via server sent events")
+	restart := flag.Bool("restart", true, "enable/disable automatic restart on go file change")
 	buildCmd := flag.String("build-cmd", "make", "command to run to build the server")
 	webRoot := flag.String("web-root", "", "web root directory, reported file paths are relative to this directory")
 	flag.Parse()
@@ -49,17 +55,22 @@ func main() {
 		log.Fatalf("url parse error: %v", err)
 	}
 
-	restart := make(chan struct{})
+	restartCh := make(chan struct{})
 	reload := NewBroadcaster[fsEventBatch]()
 
-	go rerun(target.Host, restart, *buildCmd, serverCmd, reload)
-	go waitForEnter(restart)
+	go rerun(target.Host, restartCh, *buildCmd, serverCmd, reload)
+	go waitForEnter(restartCh)
 
+	if *restart {
+		go watchFiles([]string{".go"}, func(b fsEventBatch) {
+			restartCh <- struct{}{}
+		})
+	}
 	if *liveReload {
 		go watchFiles([]string{".tmpl", ".html", ".css", ".js"}, func(b fsEventBatch) {
-			b2 := make(fsEventBatch, 0, len(b))
-			for _, e := range b {
-				b2 = append(b2, webRootRel(*webRoot, e))
+			b2 := make(fsEventBatch, len(b))
+			for i := range b {
+				b2[i] = webRootRel(*webRoot, b[i])
 			}
 			reload.Broadcast(b2)
 		})
@@ -83,6 +94,8 @@ func webRootRel(webRoot string, e fsEvent) fsEvent {
 // waitForEnter waits for a new line on os.Stdin. When a new line is received
 // it sends a message on the ch channel.
 func waitForEnter(ch chan<- struct{}) {
+	fmt.Println("Hit Enter to rebuild and restart")
+
 	s := bufio.NewScanner(os.Stdin)
 	for s.Scan() {
 		ch <- struct{}{}
@@ -121,9 +134,6 @@ func rerun(
 		}
 
 		done := startServer(ctx, addr, serverCmd)
-
-		// TODO: move to waitForEnter, Enter might not restart the server
-		fmt.Println("Hit Enter to rebuild and restart")
 
 		return func() {
 			cancel() // Stop the server
